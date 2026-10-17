@@ -87,7 +87,7 @@ Run the logic checks with:
 python -m unittest -v
 ```
 
-The tests cover map dimensions, walls, mining, recipe checks, portal progression, slime damage, pause/restart, saving, and drawing each screen. Runtime verification should also include opening the Pygame window, trying the controls, reaching both endings, and closing with the window button. Results are reported after verification is run in the target environment.
+The 13 checks cover map dimensions, walls and ore collision, mining, recipe checks, portal progression, slime damage, pause/restart, saving, drawing each screen, and a normal close event. They passed under Python 3.12.14 and Pygame 2.6.1. `py_compile` also passed. I launched the Pygame window and inspected generated menu and gameplay renders; all visuals are drawn from code. A full hands-on playthrough was not recorded as an automated test.
 
 ## Originality and references
 
