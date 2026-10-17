@@ -1,50 +1,52 @@
-# Signal Bloom
+# Redstone Run
 
-**Signal Bloom** is an original top-down arcade game made in Python with Pygame. Restore a small garden station's beacon while avoiding its security drones.
+**Redstone Run** is an original, Minecraft-inspired 2D cave adventure written in Python with Pygame. Explore a small block world, mine ore, craft a beacon core, and reach the portal before the cave slimes catch you.
 
-## Objective
+## Objective and gameplay
 
-Collect 12 green signal orbs to activate the beacon in the center of the arena. Reach the beacon to finish the run. Drones pursue the player, and their speed and spawn rate increase as time passes. You have three lives.
+Collect **4 redstone and 2 iron** by mining nearby ore veins. Find the brown workbench and craft a beacon core. Then travel to the purple portal and step onto it to escape. Coal is optional bonus score. Cave slimes move toward you; three hearts are available. Mining, crafting, and finishing quickly add points. The best score is saved locally.
 
-## Gameplay and controls
+## Controls
 
 | Key | Action |
 | --- | --- |
-| W A S D or arrow keys | Move |
-| Space | Spend 3 collected charges to stun nearby drones |
-| P or Esc | Pause or resume during a run |
+| W, A, S, D or arrow keys | Move one tile |
+| F or Space | Mine an ore block beside you |
+| E | Craft at a nearby workbench |
+| Esc | Pause or resume |
 | Enter | Start or restart |
-| H | Open instructions from the title or end screen |
-| Esc | Return to the title from instructions |
-| Q | Quit |
-
-Each orb is worth 100 points and grants one pulse charge (up to nine). A pulse stuns every drone within range for a short time. Score also increases slowly while surviving, and reaching the beacon grants a completion bonus. Your personal best is saved in `highscore.json` beside `game.py`.
+| H | Open the help screen from the menu |
+| Q or window close button | Quit |
 
 ## Features
 
-- Keyboard-driven title and instructions screens, pause, victory, game over, and restart
-- Pursuing drones with a second, weaving drone type later in a run
-- Orb collection, pulse charge, beacon objective, three lives, and invulnerability after a hit
-- Gradually increasing spawn rate and drone speed
-- Pygame-drawn visuals, animation particles, and synthesized sound effects (no external assets)
-- Local high-score save that handles missing, malformed, or unwritable save files safely
-- Runs offline after Python and Pygame are installed
+- Original block-style tile cave with ore veins, rocky shelves, workbench, and portal
+- Mining and crafting objective with a dictionary-based recipe and inventory
+- Cave slimes that pursue the player, hearts, invulnerability time, and game over
+- Menu, instructions, playing, pause, victory, and game-over screens
+- Scoring, time bonus, local high score, restart, and difficulty that gradually rises
+- All visuals drawn in Python using Pygame primitives; no separate art assets required
+- Works offline after Pygame is installed
 
-## Python modules and dependencies
+## Class XI Informatics Practices connections
 
-- Python standard library: `json`, `math`, `random`, `sys`, `pathlib`, and `array`
-- External package: Pygame
+This project is an illustrative Python project, not a replacement for the full syllabus. It shows lists (tile-map rows and entity collections), dictionaries (inventory and crafting recipe), variables and data types, operators, conditions, loops, functions/methods, classes, random movement timing, event handling, and JSON file handling with exception handling. The game does not claim to teach all syllabus units such as computer systems, relational databases and SQL, or emerging trends.
 
-No web server, browser, API, or online account is used by the game.
+## Python modules and dependency
 
-## Installation and running
+- Python standard library: `json`, `random`, `sys`, and `pathlib`
+- Installable package: Pygame (`pygame>=2.5,<3`)
+
+## Installation and run
 
 1. Install Python 3.10 or later.
-2. In a terminal in this folder, install the dependency:
+2. In a terminal in this folder, install Pygame:
 
    ```sh
    python -m pip install -r requirements.txt
    ```
+
+   On Windows, `py -m pip install -r requirements.txt` may be used instead.
 
 3. Start the game:
 
@@ -52,46 +54,46 @@ No web server, browser, API, or online account is used by the game.
    python game.py
    ```
 
-On some systems the Python launcher is named `py`; use `py -m pip install -r requirements.txt` and `py game.py` if needed.
+   On Windows, `py game.py` may be used instead.
 
-## Files
+## File structure
 
 ```text
-game.py            Game loop, screens, entities, gameplay, effects, and save handling
-requirements.txt   Pygame dependency
-README.md          Setup, rules, and project explanation
-DESIGN_SPEC.md     Short development specification
-FAQ.md             30 common questions and answers about the game and code
-NOTEBOOKLM_SOURCE.md  Fact sheet for studying or explaining this project in NotebookLM
-NOTEBOOKLM_VIDEO_PROMPT.md  Ready-to-use NotebookLM video overview instructions
-test_game.py       12 non-visual game-logic and screen checks
-.gitignore         Keeps local save data and Python cache files out of Git
-highscore.json     Created automatically after a new best score
+game.py                  Game loop, world, entities, controls, drawing, and saves
+test_game.py             Small non-visual checks for game rules
+requirements.txt         Pygame dependency
+DESIGN_SPEC.md           Concept and implementation specification
+FAQ.md                   Common questions and answers
+NOTEBOOKLM_SOURCE.md     Project brief to add as a NotebookLM source
+NOTEBOOKLM_VIDEO_PROMPT.md  Classroom video overview prompt
+redstone_best.json       Local best score, created while playing (ignored by Git)
 ```
 
-For NotebookLM, add `NOTEBOOKLM_SOURCE.md` as a source, then use the prompt in `NOTEBOOKLM_VIDEO_PROMPT.md` to guide a classroom-friendly video overview. See [FAQ.md](FAQ.md) for common questions and answers.
+## Important programming ideas
 
-## Programming concepts to explain
+- **Game loop:** Repeatedly checks events, updates the world, and draws the current screen.
+- **Grid and lists:** The map is a list of rows. Each row is a list containing one-character tile codes. Loops draw and inspect these tiles.
+- **Dictionary:** `inventory` maps item names to counts. `RECIPE` maps material names to the amounts needed to craft the core.
+- **Conditions and operators:** The game checks map bounds, walls, inventory requirements, health, and portal state before changing values.
+- **Functions and classes:** Methods split movement, mining, crafting, collisions, and drawing into parts. `Explorer`, `Slime`, and `RedstoneRun` group related data and behavior.
+- **File handling:** JSON stores the best score. Missing, corrupt, or inaccessible data does not prevent play.
+- **Procedural visuals:** Pygame rectangles and lines create a blocky visual style in code. There are no downloaded image assets.
 
-- **Game loop and events:** The main loop handles window and keyboard events, updates the game, and draws a frame at a controlled rate.
-- **Classes and objects:** `Player`, `Drone`, `Orb`, `Particle`, and `SignalBloomGame` keep related data and behavior together.
-- **Conditions and states:** A state variable selects the menu, instructions, active game, pause overlay, or ending screen.
-- **Lists and loops:** Lists hold drones, orbs, and particles; loops update and draw those objects.
-- **Collision and mathematics:** Squared distance compares two positions without needing a square root for every collision. `math.hypot` normalizes movement and pulse knockback.
-- **Randomness:** Orb positions, drone edges, and particle bursts vary from run to run.
-- **File handling and exceptions:** JSON stores the best score. Missing, invalid, or inaccessible data is handled without crashing gameplay.
-- **Functions and constants:** Reusable methods split movement, collision, drawing, saving, and progression into explainable pieces; constants make tuning straightforward.
+## Testing
 
-## Testing performed
-
-Run the automated checks with:
+Run the logic checks with:
 
 ```sh
 python -m unittest -v
 ```
 
-Twelve automated checks passed for movement bounds, orb collection and score, pulse charge and stun, drone contact and lives, difficulty progression, pause/resume, restart, victory, high-score saving/loading, corrupt or missing save data, drawing every screen, and closing through the normal window event. `py_compile` also passed for both Python files. I launched the game on the desktop, confirmed the `Signal Bloom` window opened, and closed it through its normal close event. Audio is optional and is disabled gracefully if unavailable.
+The tests cover map dimensions, walls, mining, recipe checks, portal progression, slime damage, pause/restart, saving, and drawing each screen. Runtime verification should also include opening the Pygame window, trying the controls, reaching both endings, and closing with the window button. Results are reported after verification is run in the target environment.
 
 ## Originality and references
 
-The source code, game rules, visuals, and game-specific implementation were developed for this project. No existing game source or art assets were copied. Python and Pygame documentation were consulted for programming and library concepts: [Python `json` documentation](https://docs.python.org/3.12/library/json.html), [Pygame display documentation](https://www.pygame.org/docs/ref/display.html), and [Pygame drawing documentation](https://www.pygame.org/docs/ref/draw.html).
+The game code, game rules, and code-drawn visuals were created for this project. No source code, sprites, textures, sounds, or game-specific logic were copied from an existing game. The block-world theme is an original school-project interpretation and is not affiliated with Mojang or Microsoft. The official CBSE Class XI Informatics Practices syllabus was consulted to map the Python examples accurately; official Python and Pygame documentation was consulted for library concepts.
+
+- [CBSE Class XI Informatics Practices syllabus, 2026–27 (official PDF)](https://cbseacademic.nic.in/web_material/CurriculumMain27/SecPart2/Informatics_Practices_SecP2_2026-27.pdf)
+- [Python `json` module documentation](https://docs.python.org/3/library/json.html)
+- [Pygame drawing module documentation](https://www.pygame.org/docs/ref/draw.html)
+- [Pygame event module documentation](https://www.pygame.org/docs/ref/event.html)

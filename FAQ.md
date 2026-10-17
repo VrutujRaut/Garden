@@ -1,97 +1,32 @@
-# Signal Bloom — Frequently Asked Questions
+# Redstone Run — Frequently Asked Questions
 
-## About the game
-
-### 1. What is Signal Bloom?
-Signal Bloom is an original top-down arcade game written in Python with Pygame. You restore a garden station's beacon while avoiding security drones.
-
-### 2. What is the goal?
-Collect 12 green signal orbs, then reach the beacon in the center of the arena.
-
-### 3. How do I move?
-Use **W, A, S, D** or the **arrow keys**. Diagonal movement is normalized so it is not faster than straight movement.
-
-### 4. How do I start or restart?
-Press **Enter** on the title screen to start. Press **Enter** after a win or game over to begin a fresh run.
-
-### 5. How do I see the instructions?
-Press **H** on the title screen or an ending screen. Press **Esc** on the instructions screen to return to the title.
-
-### 6. How do I pause?
-Press **P** or **Esc** while playing. Press either key again to resume.
-
-### 7. What does Space do?
-Space spends three pulse charges to stun drones near the player for a short time.
-
-### 8. How do I earn pulse charges?
-Each collected orb adds one charge. The player can hold at most nine charges.
-
-### 9. How many lives do I get?
-You start with three lives. A drone collision removes one life. A brief invulnerability period follows each hit.
-
-### 10. What happens when I lose all my lives?
-The run ends and the game-over screen shows your score and best score. Press Enter to restart.
-
-### 11. How does scoring work?
-Each orb is worth 100 points, surviving time adds two points per second, and reaching the beacon adds a 500-point completion bonus.
-
-### 12. Does the game get harder?
-Yes. Every 22 seconds the drones become faster and arrive more often. The number of active drones also increases, up to a limit.
-
-### 13. Are there different kinds of drones?
-Yes. Pink drones pursue directly. Later in the run, some larger amber drones weave as they approach.
-
-### 14. What happens after I collect the twelfth orb?
-The center beacon opens. Reach it to win the run.
-
-### 15. Can I keep playing after winning?
-The victory screen ends that run. Press Enter to start another one.
-
-### 16. How do I quit?
-Press **Q** or close the game window.
-
-## Installation and files
-
-### 17. What do I need to install?
-Install Python 3.10 or later and Pygame. Pygame can be installed directly with `py -m pip install pygame` on Windows.
-
-### 18. How do I run the game?
-From the project folder, run `py game.py` on Windows, or `python game.py` on systems using the `python` command.
-
-### 19. Does the game need internet access?
-No. After Python and Pygame are installed, gameplay is offline. The game does not use a server, online account, API, or cloud service.
-
-### 20. Does it need downloaded artwork or sound files?
-No. The visuals use Pygame shapes and particles. Simple sound effects are synthesized by the program; audio is optional if the device cannot initialize it.
-
-### 21. Where is my high score stored?
-The best score is stored in `highscore.json` beside `game.py`. Missing, invalid, or unwritable save data will not stop the game from running.
-
-### 22. Why is `highscore.json` not in the public repository?
-It is personal playthrough data, so `.gitignore` keeps it on the local computer instead of publishing it.
-
-## Programming and project
-
-### 23. What programming language is used?
-The game's implementation is Python. Pygame is the Python library used for the window, keyboard input, drawing, and optional audio.
-
-### 24. Which Python concepts does the game demonstrate?
-It uses variables, constants, conditions, loops, functions, classes, lists, random numbers, file handling, exception handling, event handling, and basic geometry.
-
-### 25. What are the main classes?
-`Player`, `Drone`, `Orb`, and `Particle` describe game objects. `SignalBloomGame` manages the game states, events, rules, drawing, and main loop.
-
-### 26. What are the game states?
-The states are title menu, instructions, playing, paused, game over, and victory.
-
-### 27. How does collision detection work?
-The game compares squared distances between circular objects. It only calculates a square root when it needs a direction or normalized movement.
-
-### 28. How is difficulty controlled?
-Elapsed time selects a difficulty stage. That stage changes drone speed, spawn interval, and the allowed number of drones, with caps to keep values bounded.
-
-### 29. What does the test file check?
-`test_game.py` has 12 automated checks for movement bounds, collecting orbs, pulse behavior, damage, difficulty, pause, restart, victory, score saving/loading, screen drawing, and normal closing.
-
-### 30. Is the project based on a copied game or tutorial?
-No. The source code, game rules, and game-specific visuals were developed for this assignment. Official Python and Pygame documentation was used to understand library concepts; see the references in `README.md`.
+1. **What is the objective?** Mine four redstone and two iron, craft a beacon core at the workbench, then step onto the portal.
+2. **How do I move?** Use WASD or the arrow keys. Movement advances one tile at a time.
+3. **How do I mine?** Stand beside a colored ore block and press F or Space.
+4. **How do I craft?** Stand beside the brown workbench and press E. The recipe is four redstone and two iron.
+5. **What does coal do?** Coal is optional and gives bonus score when mined.
+6. **What happens if I reach the portal without a core?** The portal remains inactive and the game displays a reminder.
+7. **How many hearts do I have?** Three. A slime collision takes one heart.
+8. **Can I take repeated damage instantly?** No. A short invulnerability timer follows a hit.
+9. **How do I pause?** Press Esc while playing. Press Esc or Enter to resume.
+10. **How do I restart?** Press Enter after winning or losing.
+11. **How do I see the controls?** Press H on the title screen.
+12. **How do I quit?** Press Q or close the game window.
+13. **What makes the slimes dangerous?** They take steps toward the player and gradually move more quickly as the run continues.
+14. **How does the map work?** It is a two-dimensional list of rows, with a one-character code for each tile.
+15. **Where are lists used?** The tile map and collections of entities use lists, which the program traverses with loops.
+16. **Where are dictionaries used?** The inventory stores item counts by name, and the crafting recipe stores material requirements.
+17. **Which Python topics appear?** Variables, data types, operators, conditions, loops, lists, dictionaries, functions/methods, classes, file handling, and exceptions.
+18. **How is the high score saved?** A small JSON object is read from and written to `redstone_best.json` beside `game.py`.
+19. **Will a missing or corrupt score file crash the game?** No. Loading errors safely fall back to a best score of zero.
+20. **Are the graphics separate image files?** No. All game visuals are drawn from Python with Pygame shapes and lines.
+21. **Does it need internet while playing?** No. Internet is only needed to install Pygame if it is not already installed.
+22. **What packages are required?** Python and Pygame. See `requirements.txt`.
+23. **How do I install the dependency?** Run `python -m pip install -r requirements.txt` or, on many Windows systems, `py -m pip install -r requirements.txt`.
+24. **How do I run it?** Run `python game.py` (or `py game.py` on Windows) from the project folder.
+25. **Is the game a full Minecraft clone?** No. It is an original, small block-world adventure inspired by mining and crafting ideas. It has its own code, map, characters, and visuals.
+26. **Is this affiliated with Mojang or Microsoft?** No. Minecraft is a trademark of its respective owner; this student project is unofficial.
+27. **Is the whole CBSE IP syllabus represented?** No. The game illustrates selected Python programming ideas. It does not cover all computer-system, database/SQL, and emerging-trend topics.
+28. **How can I run the checks?** Run `python -m unittest -v` after installing Pygame.
+29. **What should I explain in an evaluation?** Explain how the grid list stores tiles, how movement checks walls, how the inventory and recipe dictionaries work, and how the loop updates and draws the game.
+30. **Where did the syllabus mapping come from?** The official CBSE Class XI IP syllabus for 2026–27 was consulted, alongside official Python and Pygame documentation. Links are in `README.md`.

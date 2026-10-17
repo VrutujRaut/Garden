@@ -1,13 +1,24 @@
-# Development specification — Signal Bloom
+# Development specification — Redstone Run
 
-1. **Concept:** A compact top-down arcade game about restoring a beacon in a damaged garden station while evading security drones.
-2. **Core loop:** Move through the arena, collect signal orbs to restore the beacon and charge a pulse, stun nearby drones with the pulse, and reach the beacon after collecting enough orbs. Drones become faster and more numerous over time.
-3. **Controls:** WASD or arrow keys to move; Space to use a charged pulse; P or Esc to pause; Enter to confirm/start/restart; H for help; Esc to return from help.
-4. **Game states:** Main menu, instructions, playing, paused, game over, victory.
-5. **Entities:** Player, pursuing drones, signal orbs, visual particles, and the exit beacon.
-6. **Collision system:** Pygame rectangles/circles and squared-distance checks for orb pickup, drone contact, pulse radius, and beacon arrival.
-7. **Scoring:** Orbs add points; surviving time adds a small bonus. Best score is retained locally.
-8. **Difficulty:** Drone spawn interval and movement speed increase in timed stages, with a cap to keep the game manageable.
-9. **Save system:** `highscore.json` beside the Python file, read/written with `json` and `pathlib`; invalid or missing data falls back safely.
-10. **Dependencies:** Python 3 and Pygame. Sound effects are synthesized at runtime and degrade gracefully if audio is unavailable.
-11. **File structure:** `game.py` contains the understandable game implementation; `requirements.txt` lists Pygame; `README.md` explains setup, rules, concepts, and verification; `DESIGN_SPEC.md` records this development plan.
+1. **Concept:** An original, compact 2D block-world cave adventure. The player mines ore, crafts a beacon core, and escapes through a portal while avoiding cave slimes.
+2. **Core loop:** Explore a small tile map → mine nearby ore → collect the recipe materials → visit the workbench → craft the core → reach the portal.
+3. **Controls:** WASD/arrow keys move one tile; F or Space mines an adjacent ore block; E crafts beside the workbench; Esc pauses/resumes; Enter starts/restarts; H opens help; Q exits.
+4. **States:** Menu, help, playing, paused, game over, and victory.
+5. **Entities:** Explorer, cave slimes, tile world, workbench, ore veins, and the portal.
+6. **Collision and movement:** The explorer and slimes move on grid coordinates. A movement is accepted only if the destination tile is inside the map and is not a wall. Slime contact costs one heart and grants a brief invulnerability window.
+7. **Scoring and failure:** Mineable ore adds points, crafting adds a bonus, and a quick escape adds a time bonus. Three hearts are available; losing them ends the run. The best score is saved locally.
+8. **Progression:** The route passes rocky shelves, ore types have distinct values, and slimes shorten their step interval as the run continues.
+9. **Save system:** `redstone_best.json` stores a single best-score value using `json` and `pathlib`. Missing or corrupt data is handled safely.
+10. **Dependencies:** Python 3 and Pygame. All graphics are drawn from original code using Pygame shapes; no image or sound files are needed.
+11. **File structure:** `game.py` contains the game, `test_game.py` checks core rules, `requirements.txt` lists Pygame, and `README.md`, `FAQ.md`, and the NotebookLM files explain the project.
+
+## Class XI IP connections
+
+- Tile rows and active slimes use **lists** and iteration.
+- The inventory and recipe use **dictionaries** with key/value pairs.
+- **Variables, data types, arithmetic, comparisons, and Boolean conditions** control score, movement, crafting, health, and state changes.
+- Small methods organize the program into explainable **functions**; classes model the explorer, slimes, and game.
+- **JSON file handling** stores the best score, and exception handling protects startup from missing or malformed data.
+- Original pixel-style visuals are drawn from code rather than downloaded assets.
+
+The game demonstrates Python programming topics from CBSE Class XI Informatics Practices. It is not presented as a complete demonstration of the syllabus units on computer systems, relational databases/SQL, or emerging trends.

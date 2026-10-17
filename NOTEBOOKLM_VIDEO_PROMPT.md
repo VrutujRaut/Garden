@@ -1,21 +1,11 @@
-# NotebookLM Video Overview Prompt — Signal Bloom
+# NotebookLM Video Overview Prompt — Redstone Run
 
-Use this prompt with the NotebookLM source document **Signal Bloom — NotebookLM Project Brief**.
+Use this prompt with **Redstone Run — NotebookLM Project Brief**.
 
-> Create a clear, friendly 2–3 minute classroom video overview of the Python school project **Signal Bloom** for classmates and a computer-science teacher. Explain what the player is trying to do, the controls, how collecting twelve orbs opens the center beacon, how a three-charge pulse stuns pursuing drones, how lives and scoring work, and how difficulty increases over time. Then briefly explain the Python ideas visible in the project: the main game loop, event handling, game states, classes for player/drones/orbs, list-based object updates, distance-based collision checks, random variation, and JSON high-score saving with safe error handling.
+> Create a friendly, student-presented 2–3 minute classroom overview of **Redstone Run**, an original Python/Pygame block-world school project. Explain the objective: mine four redstone and two iron, craft a beacon core at the workbench, then reach the purple portal while avoiding pursuing cave slimes. Explain WASD/arrow movement, F or Space mining, E crafting, Esc pause, Enter start/restart, H help, and Q/window close to quit. Briefly explain the code concepts supported by the source: a list-of-lists tile map, dictionary inventory and recipe, variables and data types, operators and conditions, loops, classes/methods, random timer variation, and JSON best-score saving with safe error handling.
 
-> Use only facts supported by the source document. Do not invent features, code, assets, online play, or claims about a teacher's grading. Describe the implementation as original project work and say that official Python and Pygame documentation was used to understand library concepts. Keep the explanation student-friendly and technically accurate. Spell the title **Signal Bloom** consistently. Use on-screen labels for the six states: Menu, Instructions, Playing, Paused, Game Over, and Victory. Show the control legend accurately: WASD or arrow keys to move; Space for a pulse when at least three charges are available; P or Esc to pause/resume; Enter to start/restart; H for instructions from the menu or ending screens; Esc to return from instructions; Q or the window close button to quit. End by summarizing the objective and inviting viewers to try to restore the beacon.
+> Use only information supported by the source. State clearly that the game demonstrates selected CBSE Class XI Informatics Practices Python ideas and does not cover the full syllabus. Say the project code, map, characters, and code-drawn visuals were created for this assignment, and that official CBSE, Python, and Pygame documentation was consulted. Do not imply that the game is affiliated with Mojang or Microsoft. Do not invent features, code, assets, or grading claims. If no actual gameplay recording is available, use labeled diagrams rather than fake footage.
 
-## Suggested visual sequence
+> Suggested sequence: title card; map and its blocks; show mining and inventory; explain the four-redstone/two-iron recipe and workbench; show slimes and hearts; show the portal goal; diagram the program cycle as events → update → draw; connect the grid list and inventory dictionary to the syllabus; end with the offline requirement and originality/reference note.
 
-1. Title card: **Signal Bloom — a Python/Pygame arcade project**.
-2. Arena overview: identify the player, green signal orbs, drones, and center beacon.
-3. Show the objective: collect twelve orbs, then reach the center.
-4. Show controls and the pulse rule: three charges stun nearby drones.
-5. Explain lives, points, the completion bonus, and the rising difficulty.
-6. Show a simple diagram of the loop: events → update → collisions/scoring → draw.
-7. Close with the project concepts, offline requirement (Python plus Pygame), and originality/reference note.
-
-## Narration style
-
-Use a calm, upbeat student-presenter voice. Prefer short sentences, define technical words once, and keep the visuals readable. Avoid rapid cuts, fake gameplay footage, tiny code text, or unsupported claims. If a screenshot or recording of the game is not available as a source, use simple labeled diagrams rather than pretending to show real gameplay.
+> Use a calm, upbeat student voice, short sentences, readable labels, and a few clear visuals. Avoid tiny code text, rapid cuts, and claims beyond the source.

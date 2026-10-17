@@ -1,77 +1,58 @@
-# Signal Bloom — NotebookLM Project Brief
+# Redstone Run — NotebookLM Project Brief
 
-Use this file as a source document for learning about and presenting the school project. The statements below describe the current implementation in `game.py`.
+This source describes the current school project implementation in `game.py`.
 
-## Project at a glance
+## Project overview
 
-Signal Bloom is an original, offline, top-down arcade game implemented in Python with Pygame. A player restores a garden station's beacon by collecting signal orbs while avoiding security drones. The program is intended to be understandable as a school computer-science assignment.
+Redstone Run is an original, offline 2D block-world adventure made with Python and Pygame. It uses a top-down tile cave with an original pixel-like style drawn from Pygame primitives. It is inspired by broad mining-and-crafting ideas, not a reproduction of Minecraft code, maps, or artwork.
 
-## Objective and play loop
+## Goal and gameplay
 
-The player moves around one bounded arena. Green orbs appear around the arena and can be collected by touching them. Collecting twelve orbs activates the beacon at the center. The player must reach that beacon to win. Pink drones chase the player, and larger amber drones that weave toward the player may appear later. Contact costs a life. The run ends after the player's three lives are used.
+The explorer starts in a cave with three hearts. Cave slimes take steps toward the explorer. The player mines colored ore blocks that are next to them, collecting four redstone and two iron. Coal is optional bonus score. The player then stands beside a brown workbench and presses E to craft a beacon core. Finally, the explorer reaches the purple portal. The portal only completes the run after the core is crafted. Losing all three hearts ends the run.
 
-Each orb gives 100 points and one pulse charge. Time survived also contributes two points per second. A successful beacon visit adds a 500-point bonus. Pressing Space spends three charges and stuns all drones within range for 2.8 seconds. A player can hold at most nine charges. Drones increase in speed and spawn frequency as the run continues; progression has caps.
+Mining ore, crafting the core, and finishing quickly award points. The best score is stored locally in `redstone_best.json`. Slimes gradually shorten their step timer as the run continues. A short invulnerability period follows contact to prevent rapid repeated damage.
 
 ## Controls
 
 | Input | Action |
 | --- | --- |
-| W, A, S, D or arrow keys | Move |
-| Space | Spend three charges to stun nearby drones |
-| P or Esc during a run | Pause or resume |
+| WASD or arrow keys | Move one tile |
+| F or Space | Mine an adjacent ore block |
+| E | Craft beside the workbench |
+| Esc | Pause or resume |
 | Enter | Start or restart |
-| H on title or ending screen | Open instructions |
-| Esc on instructions | Return to title |
-| Q or window close button | Quit |
+| H from the menu | Open the field guide |
+| Q or window close | Quit |
 
-## Screens and program flow
+## Game states
 
-The game uses six states: title menu, instructions, playing, paused, game over, and victory. The main loop processes Pygame events, updates gameplay using elapsed frame time, draws the current screen, and refreshes the display. Pause stops gameplay updates while keeping the screen visible. Enter begins a new run from the menu or either ending screen.
+Menu, field guide, playing, paused, game over, and victory are selected by a state string. The main game loop handles Pygame events, updates timers and entities, and draws the active screen.
 
-## Important Python structures
+## Programming concepts from CBSE Class XI IP
 
-- `SignalBloomGame` coordinates state, input, object updates, collision responses, scoring, drawing, and the main loop.
-- `Player` stores movement, lives, invulnerability time, and pulse charge.
-- `Drone` stores position, movement speed, type, and stun time.
-- `Orb` stores a collectible's position and animation phase.
-- `Particle` stores a short-lived visual effect.
-- Lists hold the active drones, orbs, and particles.
-- Constants define window dimensions, arena bounds, lives, the orb goal, and pulse settings.
+- **Lists:** `world` is a list of tile rows; each row is a list of character tile codes. Loops traverse the map for collision and rendering.
+- **Dictionaries:** The `inventory` dictionary maps material names to counts. The `RECIPE` dictionary maps materials to crafting amounts.
+- **Variables and data types:** Integer grid positions, scores, inventory counts, text tile codes, Boolean conditions, and floating-point timers control gameplay.
+- **Operators and conditions:** Arithmetic computes scores and positions; comparisons and Boolean logic check walls, recipe requirements, health, and game state.
+- **Loops:** The main loop repeats event handling and rendering; `for` loops traverse rows, tiles, and enemies.
+- **Functions and classes:** Methods split movement, mining, crafting, enemy updates, scoring, and drawing. `Explorer`, `Slime`, and `RedstoneRun` keep related data and actions together.
+- **File handling and exceptions:** JSON stores the best score. Missing, corrupt, or inaccessible data is handled without a crash.
+- **Randomness:** Slime movement timers vary at the start of a run.
 
-## Collision, timing, and difficulty
+This project demonstrates selected Python programming concepts. It does not cover the entire Class XI IP syllabus, including every computer-system, RDBMS/SQL, and emerging-trend topic.
 
-Circular collisions are checked with squared distance between two positions. This avoids a square root for simple overlap checks. Square roots are used when movement needs a normalized direction. The frame loop caps elapsed frame time so a long pause between frames cannot cause a single enormous movement step.
+## Dependencies and offline use
 
-Difficulty stages advance every 22 seconds. Higher stages raise drone speed, shorten the spawn interval, and raise the maximum number of active drones, up to caps. A second drone type adds a weaving movement pattern.
+Python 3.10+ and Pygame are required. Install with `python -m pip install -r requirements.txt`, then run `python game.py`. The game does not access the internet while running and uses no external art or sound files.
 
-## Saving and recovery
+## Testing
 
-The best score is read from and written to `highscore.json` next to `game.py`, using Python's `json` and `pathlib` modules. If the file is missing, corrupt, or inaccessible, the game uses a score of zero or continues without saving. The local score file is listed in `.gitignore` so it is not included in the public source repository.
-
-## Libraries and assets
-
-The game uses Python standard-library modules `json`, `math`, `random`, `sys`, `pathlib`, and `array`, plus the installable Pygame package. Shapes, stars, and particles are drawn in code; simple sound effects are synthesized at runtime. No external art or audio files, network service, online account, or internet connection during play is required.
-
-## How to install and run
-
-Install Python 3.10 or later, then install Pygame with `py -m pip install pygame` on Windows (or `python -m pip install pygame`). From the project folder, launch with `py game.py` (or `python game.py`).
-
-## Verification
-
-The project has 12 automated checks in `test_game.py`. They cover movement bounds, orb collection and charge, pulse and stun behavior, life loss, difficulty progression, pause and resume, restart, victory, score load/save and invalid data, rendering every game screen, and responding to a normal window-close event. Both Python source files were syntax-compiled, and the desktop window was launched and closed successfully during development.
+`test_game.py` contains small checks for the list-based world, wall collision, mining, recipe checks, portal progression, slime damage, pause/restart, high-score file handling, and rendering every screen. Run it with `python -m unittest -v` after installing Pygame.
 
 ## Originality and references
 
-The source code, game rules, and game-specific visuals were developed for this school assignment. Existing game source code and art assets were not copied. Official documentation was used to understand Python and Pygame concepts:
+The source code, game rules, tile map, characters, and visuals were made specifically for this assignment. No existing game code, maps, or assets were copied. Official Python/Pygame references informed API usage. The official CBSE IP syllabus was used to map the programming examples:
 
-- [Python 3.12 `json` module](https://docs.python.org/3.12/library/json.html)
-- [Pygame display module](https://www.pygame.org/docs/ref/display.html)
-- [Pygame drawing module](https://www.pygame.org/docs/ref/draw.html)
-
-## Vocabulary
-
-- **Game loop:** The repeating cycle that handles events, updates objects, and draws frames.
-- **State:** A label describing which screen or phase is active.
-- **Collision detection:** A calculation that determines whether two objects overlap.
-- **Procedural visual:** A visual drawn by program instructions instead of loaded artwork.
-- **High score:** The largest score saved between runs on the same computer.
+- [CBSE Class XI Informatics Practices syllabus, 2026–27](https://cbseacademic.nic.in/web_material/CurriculumMain27/SecPart2/Informatics_Practices_SecP2_2026-27.pdf)
+- [Python JSON documentation](https://docs.python.org/3/library/json.html)
+- [Pygame drawing documentation](https://www.pygame.org/docs/ref/draw.html)

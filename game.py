@@ -1,506 +1,426 @@
-"""Signal Bloom: restore the station beacon and outsmart its security drones."""
+"""Redstone Run: an original block-world adventure and Class XI IP project."""
 
 from __future__ import annotations
 
 import json
-import math
 import random
 import sys
-from array import array
 from pathlib import Path
 
 import pygame
 
 
-# Window, playfield, and progression settings are kept together for easy tuning.
-WIDTH, HEIGHT = 960, 640
-ARENA = pygame.Rect(24, 92, WIDTH - 48, HEIGHT - 112)
+WIDTH, HEIGHT = 960, 720
+TILE = 32
+COLS, ROWS = 26, 16
+WORLD_X, WORLD_Y = (WIDTH - COLS * TILE) // 2, 118
 FPS = 60
-GOAL_ORBS = 12
-STARTING_LIVES = 3
-PULSE_COST = 3
-PULSE_RADIUS = 155
-SAVE_PATH = Path(__file__).with_name("highscore.json")
+SAVE_PATH = Path(__file__).with_name("redstone_best.json")
+GOAL = {"redstone": 4, "iron": 2}
+RECIPE = {"redstone": 4, "iron": 2}
 
-BG = (8, 16, 31)
-PANEL = (15, 29, 49)
-GRID = (22, 43, 64)
-WHITE = (229, 243, 251)
-MUTED = (139, 164, 184)
-CYAN = (73, 224, 224)
-GOLD = (255, 205, 102)
-PINK = (255, 106, 139)
-GREEN = (117, 239, 165)
+INK = (17, 21, 28)
+PANEL = (34, 40, 49)
+WHITE = (242, 244, 238)
+MUTED = (172, 181, 182)
+MINT = (91, 220, 151)
+GOLD = (255, 205, 97)
+RED = (226, 84, 79)
+BLUE = (93, 173, 232)
+
+FLOOR = "."
+WALL = "#"
+BENCH = "B"
+PORTAL = "P"
+ORE = {"r": "redstone", "i": "iron", "c": "coal"}
+ORE_COLORS = {"redstone": (227, 62, 67), "iron": (195, 176, 146), "coal": (83, 91, 99)}
 
 
-def load_high_score(path: Path = SAVE_PATH) -> int:
-    """Load the best score; missing, malformed, or unexpected data is harmless."""
+def load_best(path: Path = SAVE_PATH) -> int:
+    """Read the best score, treating missing or invalid save data as zero."""
     try:
         data = json.loads(path.read_text(encoding="utf-8"))
-        score = data.get("high_score", 0)
-        return max(0, int(score))
+        return max(0, int(data.get("best", 0)))
     except (OSError, ValueError, TypeError, AttributeError, json.JSONDecodeError):
         return 0
 
 
-def save_high_score(score: int, path: Path = SAVE_PATH) -> None:
-    """Save the best score without allowing a file error to close the game."""
+def save_best(score: int, path: Path = SAVE_PATH) -> None:
     try:
-        path.write_text(json.dumps({"high_score": int(score)}, indent=2), encoding="utf-8")
+        path.write_text(json.dumps({"best": int(score)}, indent=2), encoding="utf-8")
     except OSError:
         pass
 
 
-def distance_squared(a: tuple[float, float], b: tuple[float, float]) -> float:
-    dx, dy = a[0] - b[0], a[1] - b[1]
-    return dx * dx + dy * dy
+def make_world() -> list[list[str]]:
+    """Build a small tile map (a list of rows, each row a list of tile codes)."""
+    world = [[WALL if x in (0, COLS - 1) or y in (0, ROWS - 1) else FLOOR
+              for x in range(COLS)] for y in range(ROWS)]
+    # Broken rocky shelves make short, readable routes through the cave.
+    for x in range(5, 15):
+        if x not in (9, 10):
+            world[4][x] = WALL
+    for x in range(12, 22):
+        if x not in (16, 17):
+            world[8][x] = WALL
+    for x in range(3, 11):
+        if x not in (6, 7):
+            world[11][x] = WALL
+    for y in range(5, 8):
+        world[y][19] = WALL
+    for y in range(9, 12):
+        if y != 10:
+            world[y][5] = WALL
+
+    world[13][2] = BENCH
+    world[13][23] = PORTAL
+    ore_spots = {
+        "r": ((7, 3), (17, 5), (10, 9), (21, 12), (13, 13), (3, 8)),
+        "i": ((17, 2), (4, 13), (22, 6)),
+        "c": ((3, 5), (15, 6), (22, 10), (8, 13)),
+    }
+    for tile_code, points in ore_spots.items():
+        for x, y in points:
+            world[y][x] = tile_code
+    return world
 
 
-class SoundBank:
-    """Small synthesized effects; the game still works if audio cannot initialize."""
-
-    def __init__(self) -> None:
-        self.sounds: dict[str, pygame.mixer.Sound] = {}
-        try:
-            if not pygame.mixer.get_init():
-                pygame.mixer.init(frequency=22050, size=-16, channels=1, buffer=512)
-            self.sounds = {
-                "collect": self._tone(720, 0.10, 0.20),
-                "pulse": self._tone(250, 0.24, 0.28, sweep=520),
-                "hit": self._tone(145, 0.22, 0.25, sweep=75),
-                "open": self._tone(560, 0.34, 0.18, sweep=920),
-            }
-        except (pygame.error, OSError):
-            self.sounds = {}
-
-    @staticmethod
-    def _tone(start_hz: float, duration: float, volume: float, sweep: float = 0) -> pygame.mixer.Sound:
-        rate = 22050
-        samples = array("h")
-        for index in range(int(rate * duration)):
-            t = index / rate
-            progress = t / duration
-            frequency = start_hz + sweep * progress
-            envelope = min(1.0, t * 35) * max(0.0, 1.0 - progress) ** 1.4
-            value = int(32767 * volume * envelope * math.sin(2 * math.pi * frequency * t))
-            samples.append(value)
-        return pygame.mixer.Sound(buffer=samples.tobytes())
-
-    def play(self, name: str) -> None:
-        sound = self.sounds.get(name)
-        if sound:
-            try:
-                sound.play()
-            except pygame.error:
-                pass
+def tile_center(tile_pos: tuple[int, int]) -> tuple[float, float]:
+    return tile_pos[0] + 0.5, tile_pos[1] + 0.5
 
 
-class Player:
-    def __init__(self) -> None:
-        self.x, self.y = ARENA.left + 120, ARENA.centery + 40
-        self.radius = 13
-        self.speed = 245
-        self.lives = STARTING_LIVES
+class Explorer:
+    """Player data: position and health are simple, explainable attributes."""
+
+    def __init__(self, x: int = 2, y: int = 2) -> None:
+        self.x, self.y = x, y
+        self.health = 3
         self.invulnerable = 0.0
-        self.charge = 0
 
     @property
-    def position(self) -> tuple[float, float]:
+    def tile(self) -> tuple[int, int]:
         return self.x, self.y
 
-    def move(self, keys: pygame.key.ScancodeWrapper, dt: float) -> None:
-        dx = float(keys[pygame.K_d] or keys[pygame.K_RIGHT]) - float(keys[pygame.K_a] or keys[pygame.K_LEFT])
-        dy = float(keys[pygame.K_s] or keys[pygame.K_DOWN]) - float(keys[pygame.K_w] or keys[pygame.K_UP])
-        if dx and dy:
-            length = math.hypot(dx, dy)
-            dx, dy = dx / length, dy / length
-        self.x += dx * self.speed * dt
-        self.y += dy * self.speed * dt
-        self.x = max(ARENA.left + self.radius, min(ARENA.right - self.radius, self.x))
-        self.y = max(ARENA.top + self.radius, min(ARENA.bottom - self.radius, self.y))
-        self.invulnerable = max(0.0, self.invulnerable - dt)
 
-    def draw(self, surface: pygame.Surface) -> None:
-        if self.invulnerable > 0 and int(self.invulnerable * 14) % 2 == 0:
-            return
-        center = (round(self.x), round(self.y))
-        pygame.draw.circle(surface, (19, 85, 110), center, self.radius + 7)
-        pygame.draw.circle(surface, CYAN, center, self.radius)
-        pygame.draw.circle(surface, WHITE, (center[0] - 3, center[1] - 4), 4)
-        pygame.draw.circle(surface, (35, 143, 163), center, self.radius, 2)
+class Slime:
+    """A small cave creature that takes one simple step toward the explorer."""
 
-
-class Drone:
-    def __init__(self, x: float, y: float, speed: float, variant: int = 0) -> None:
+    def __init__(self, x: int, y: int) -> None:
         self.x, self.y = x, y
-        self.speed = speed
-        self.radius = 14 if variant == 0 else 17
-        self.stunned = 0.0
-        self.variant = variant
-        self.phase = random.random() * math.tau
+        self.move_timer = random.uniform(0.0, 0.5)
 
-    def update(self, target: tuple[float, float], dt: float, elapsed: float) -> None:
-        self.stunned = max(0.0, self.stunned - dt)
-        self.phase += dt * 3
-        if self.stunned > 0:
-            return
-        dx, dy = target[0] - self.x, target[1] - self.y
-        length = max(1.0, math.hypot(dx, dy))
-        # Larger amber drones drift from side to side, giving them a distinct approach.
-        weave = math.sin(self.phase) * (0.30 if self.variant else 0.10)
-        vx, vy = dx / length - dy / length * weave, dy / length + dx / length * weave
-        norm = max(1.0, math.hypot(vx, vy))
-        self.x += vx / norm * self.speed * dt
-        self.y += vy / norm * self.speed * dt
-
-    def draw(self, surface: pygame.Surface) -> None:
-        center = (round(self.x), round(self.y))
-        color = (117, 137, 151) if self.stunned else (GOLD if self.variant else PINK)
-        pygame.draw.circle(surface, (*color[:3],), center, self.radius + 5, 1)
-        pygame.draw.circle(surface, color, center, self.radius)
-        pygame.draw.circle(surface, BG, center, max(3, self.radius // 3))
-        if self.stunned:
-            for offset in (-8, 0, 8):
-                pygame.draw.circle(surface, WHITE, (center[0] + offset, center[1] - self.radius - 4), 2)
+    @property
+    def tile(self) -> tuple[int, int]:
+        return self.x, self.y
 
 
-class Orb:
-    def __init__(self, x: float, y: float) -> None:
-        self.x, self.y = x, y
-        self.phase = random.random() * math.tau
-
-    def draw(self, surface: pygame.Surface, elapsed: float) -> None:
-        radius = 7 + int((math.sin(elapsed * 5 + self.phase) + 1) * 1.5)
-        center = (round(self.x), round(self.y))
-        pygame.draw.circle(surface, (40, 103, 104), center, radius + 6)
-        pygame.draw.circle(surface, GREEN, center, radius)
-        pygame.draw.circle(surface, WHITE, (center[0] - 2, center[1] - 2), 2)
-
-
-class Particle:
-    def __init__(self, x: float, y: float, color: tuple[int, int, int], burst_speed: float = 110) -> None:
-        angle = random.random() * math.tau
-        speed = random.uniform(burst_speed * 0.35, burst_speed)
-        self.x, self.y = x, y
-        self.vx, self.vy = math.cos(angle) * speed, math.sin(angle) * speed
-        self.color = color
-        self.life = self.max_life = random.uniform(0.25, 0.58)
-        self.size = random.randint(2, 4)
-
-    def update(self, dt: float) -> None:
-        self.x += self.vx * dt
-        self.y += self.vy * dt
-        self.life -= dt
-
-    def draw(self, surface: pygame.Surface) -> None:
-        if self.life > 0:
-            pygame.draw.circle(surface, self.color, (round(self.x), round(self.y)), max(1, int(self.size * self.life / self.max_life)))
-
-
-class SignalBloomGame:
+class RedstoneRun:
     def __init__(self) -> None:
         pygame.init()
-        pygame.display.set_caption("Signal Bloom")
+        pygame.display.set_caption("Redstone Run | Class XI IP")
         self.screen = pygame.display.set_mode((WIDTH, HEIGHT))
         self.clock = pygame.time.Clock()
-        self.fonts = {
-            "tiny": pygame.font.Font(None, 20),
-            "small": pygame.font.Font(None, 25),
-            "body": pygame.font.Font(None, 30),
-            "title": pygame.font.Font(None, 74),
-            "sub": pygame.font.Font(None, 38),
-        }
-        self.sounds = SoundBank()
-        self.high_score = load_high_score()
+        self.font = pygame.font.Font(None, 29)
+        self.small = pygame.font.Font(None, 22)
+        self.title_font = pygame.font.Font(None, 72)
+        self.best = load_best()
         self.state = "menu"
-        self.elapsed = 0.0
+        self.message = "Mine ore, craft a beacon core, and find the portal."
+        self.message_timer = 0.0
+        self.reset_run()
+
+    def reset_run(self) -> None:
+        self.world = make_world()
+        self.player = Explorer()
+        self.slimes = [Slime(22, 2), Slime(14, 13)]
+        self.inventory = {"redstone": 0, "iron": 0, "coal": 0, "beacon_core": 0}
         self.score = 0
-        self.orbs_collected = 0
-        self.player = Player()
-        self.drones: list[Drone] = []
-        self.orbs: list[Orb] = []
-        self.particles: list[Particle] = []
-        self.spawn_timer = 0.0
-        self.pulse_flash = 0.0
-        self.beacon_flash = 0.0
-        self.new_record = False
-        self.background_stars = [
-            (random.randrange(0, WIDTH), random.randrange(0, HEIGHT), random.choice((1, 1, 2)))
-            for _ in range(70)
-        ]
-
-    def start_game(self) -> None:
-        self.player = Player()
         self.elapsed = 0.0
-        self.score = 0
-        self.orbs_collected = 0
-        self.drones = []
-        self.orbs = []
-        self.particles = []
-        self.spawn_timer = 0.0
-        self.pulse_flash = self.beacon_flash = 0.0
-        self.new_record = False
-        for _ in range(5):
-            self.spawn_orb()
-        self.spawn_drone(initial=True)
-        self.spawn_drone(initial=True)
-        self.state = "playing"
+        self.move_cooldown = 0.0
+        self.mine_cooldown = 0.0
+        self.enemy_clock = 0.0
+        self.message = "Mine redstone and iron. A workbench is near the lower-left."
+        self.message_timer = 4.0
 
-    def spawn_orb(self) -> None:
-        for _ in range(40):
-            x = random.uniform(ARENA.left + 36, ARENA.right - 36)
-            y = random.uniform(ARENA.top + 36, ARENA.bottom - 36)
-            if distance_squared((x, y), self.player.position) > 95**2:
-                self.orbs.append(Orb(x, y))
-                return
-        self.orbs.append(Orb(ARENA.centerx, ARENA.centery))
+    def inside(self, x: int, y: int) -> bool:
+        return 0 <= x < COLS and 0 <= y < ROWS
 
-    def spawn_drone(self, initial: bool = False) -> None:
-        side = random.randrange(4)
-        margin = 24
-        if side == 0:
-            x, y = random.uniform(ARENA.left, ARENA.right), ARENA.top + margin
-        elif side == 1:
-            x, y = ARENA.right - margin, random.uniform(ARENA.top, ARENA.bottom)
-        elif side == 2:
-            x, y = random.uniform(ARENA.left, ARENA.right), ARENA.bottom - margin
-        else:
-            x, y = ARENA.left + margin, random.uniform(ARENA.top, ARENA.bottom)
-        stage = int(self.elapsed // 22)
-        speed = min(112 + stage * 13, 190) if initial else min(105 + stage * 13, 184)
-        variant = 1 if self.elapsed > 48 and random.random() < 0.32 else 0
-        self.drones.append(Drone(x, y, speed, variant))
+    def walkable(self, x: int, y: int) -> bool:
+        return self.inside(x, y) and self.world[y][x] != WALL and self.world[y][x] not in ORE
 
-    def burst(self, x: float, y: float, color: tuple[int, int, int], count: int = 12, speed: float = 120) -> None:
-        self.particles.extend(Particle(x, y, color, speed) for _ in range(count))
+    def announce(self, message: str) -> None:
+        self.message = message
+        self.message_timer = 2.5
 
-    def use_pulse(self) -> None:
-        if self.player.charge < PULSE_COST:
+    def nearby(self, tile_code: str) -> bool:
+        return any(self.inside(self.player.x + dx, self.player.y + dy)
+                   and self.world[self.player.y + dy][self.player.x + dx] == tile_code
+                   for dx, dy in ((0, 0), (1, 0), (-1, 0), (0, 1), (0, -1)))
+
+    def move_player(self, dx: int, dy: int) -> None:
+        if self.state != "playing" or self.move_cooldown > 0:
             return
-        self.player.charge -= PULSE_COST
-        self.pulse_flash = 0.34
-        self.sounds.play("pulse")
-        self.burst(self.player.x, self.player.y, CYAN, 24, 215)
-        radius_sq = PULSE_RADIUS * PULSE_RADIUS
-        for drone in self.drones:
-            if distance_squared(self.player.position, (drone.x, drone.y)) <= radius_sq:
-                drone.stunned = 2.8
-                dx, dy = drone.x - self.player.x, drone.y - self.player.y
-                length = max(1.0, math.hypot(dx, dy))
-                drone.x += dx / length * 36
-                drone.y += dy / length * 36
-                self.burst(drone.x, drone.y, GOLD, 8, 85)
+        nx, ny = self.player.x + dx, self.player.y + dy
+        if self.walkable(nx, ny):
+            self.player.x, self.player.y = nx, ny
+            self.move_cooldown = 0.115
+            if self.world[ny][nx] == PORTAL:
+                self.check_portal()
 
-    def hit_player(self, drone: Drone) -> None:
+    def mine(self) -> None:
+        if self.state != "playing" or self.mine_cooldown > 0:
+            return
+        self.mine_cooldown = 0.20
+        for dx, dy in ((0, 0), (1, 0), (-1, 0), (0, 1), (0, -1)):
+            x, y = self.player.x + dx, self.player.y + dy
+            if not self.inside(x, y) or self.world[y][x] not in ORE:
+                continue
+            material = ORE[self.world[y][x]]
+            self.world[y][x] = FLOOR
+            self.inventory[material] += 1
+            self.score += 25 if material == "coal" else 50
+            self.announce(f"Mined {material}! {self.inventory[material]} in your inventory.")
+            return
+        self.announce("No ore beside you. Move next to a colored block and press F.")
+
+    def craft(self) -> None:
+        if self.state != "playing":
+            return
+        if not self.nearby(BENCH):
+            self.announce("Find the workbench (brown blocks) and stand beside it.")
+            return
+        if self.inventory["beacon_core"]:
+            self.announce("Beacon core crafted. Reach the purple portal!")
+            return
+        if all(self.inventory[item] >= count for item, count in RECIPE.items()):
+            for item, count in RECIPE.items():
+                self.inventory[item] -= count
+            self.inventory["beacon_core"] = 1
+            self.score += 150
+            self.announce("Beacon core crafted! Reach the purple portal.")
+        else:
+            self.announce("Recipe: 4 redstone + 2 iron. Mine the bright ore veins.")
+
+    def check_portal(self) -> None:
+        if self.inventory["beacon_core"]:
+            self.score += max(0, 300 - int(self.elapsed))
+            self.finish("victory")
+        else:
+            self.announce("The portal is dark. Craft a beacon core at the workbench first.")
+
+    def damage_player(self) -> None:
         if self.player.invulnerable > 0:
             return
-        self.player.lives -= 1
-        self.player.invulnerable = 1.5
-        self.sounds.play("hit")
-        self.burst(self.player.x, self.player.y, PINK, 18, 160)
-        dx, dy = self.player.x - drone.x, self.player.y - drone.y
-        length = max(1.0, math.hypot(dx, dy))
-        self.player.x = max(ARENA.left + 18, min(ARENA.right - 18, self.player.x + dx / length * 52))
-        self.player.y = max(ARENA.top + 18, min(ARENA.bottom - 18, self.player.y + dy / length * 52))
-        drone.stunned = 0.55
-        if self.player.lives <= 0:
+        self.player.health -= 1
+        self.player.invulnerable = 1.1
+        self.announce("A cave slime bumped you! Keep moving.")
+        if self.player.health <= 0:
             self.finish("game_over")
 
-    def finish(self, state: str) -> None:
-        self.state = state
-        if self.score > self.high_score:
-            self.high_score = self.score
-            self.new_record = True
-            save_high_score(self.high_score, SAVE_PATH)
+    def update_slimes(self, dt: float) -> None:
+        for slime in self.slimes:
+            slime.move_timer -= dt
+            if slime.move_timer > 0:
+                continue
+            slime.move_timer = max(0.22, 0.72 - self.elapsed / 150)
+            choices = [(self.player.x - slime.x, self.player.y - slime.y)]
+            if abs(choices[0][0]) and abs(choices[0][1]):
+                choices = [(choices[0][0], 0), (0, choices[0][1])]
+                random.shuffle(choices)
+            if choices[0] == (0, 0):
+                continue
+            for dx, dy in choices:
+                sx = 0 if dx == 0 else (1 if dx > 0 else -1)
+                sy = 0 if dy == 0 else (1 if dy > 0 else -1)
+                if self.walkable(slime.x + sx, slime.y + sy):
+                    slime.x += sx
+                    slime.y += sy
+                    break
+        if self.player.invulnerable <= 0 and any(slime.tile == self.player.tile for slime in self.slimes):
+            self.damage_player()
 
     def update(self, dt: float) -> None:
         if self.state != "playing":
             return
         self.elapsed += dt
-        self.score = self.orbs_collected * 100 + int(self.elapsed * 2)
-        self.player.move(pygame.key.get_pressed(), dt)
-        self.pulse_flash = max(0.0, self.pulse_flash - dt)
-        self.beacon_flash = max(0.0, self.beacon_flash - dt)
+        self.move_cooldown = max(0.0, self.move_cooldown - dt)
+        self.mine_cooldown = max(0.0, self.mine_cooldown - dt)
+        self.player.invulnerable = max(0.0, self.player.invulnerable - dt)
+        self.message_timer = max(0.0, self.message_timer - dt)
+        self.enemy_clock += dt
+        if self.enemy_clock >= 0.2:
+            self.enemy_clock = 0.0
+            self.update_slimes(0.2)
 
-        stage = int(self.elapsed // 22)
-        spawn_interval = max(3.4, 8.0 - stage * 0.85)
-        self.spawn_timer += dt
-        if self.spawn_timer >= spawn_interval and len(self.drones) < min(3 + stage, 8):
-            self.spawn_timer = 0.0
-            self.spawn_drone()
-
-        for drone in self.drones:
-            drone.speed = min((105 if drone.variant == 0 else 88) + stage * 12, 184)
-            drone.update(self.player.position, dt, self.elapsed)
-            if distance_squared(self.player.position, (drone.x, drone.y)) <= (self.player.radius + drone.radius) ** 2:
-                self.hit_player(drone)
-                if self.state != "playing":
-                    return
-
-        for orb in self.orbs[:]:
-            if distance_squared(self.player.position, (orb.x, orb.y)) <= (self.player.radius + 12) ** 2:
-                self.orbs.remove(orb)
-                self.orbs_collected += 1
-                self.player.charge = min(9, self.player.charge + 1)
-                self.score = self.orbs_collected * 100 + int(self.elapsed * 2)
-                self.sounds.play("collect")
-                self.burst(orb.x, orb.y, GREEN, 12)
-                if self.orbs_collected == GOAL_ORBS:
-                    self.sounds.play("open")
-                    self.beacon_flash = 1.0
-                if self.orbs_collected < GOAL_ORBS and len(self.orbs) < 5:
-                    self.spawn_orb()
-
-        if self.orbs_collected >= GOAL_ORBS and distance_squared(
-            self.player.position, (ARENA.centerx, ARENA.centery)
-        ) <= 31**2:
-            self.score += 500
-            self.finish("victory")
-
-        for particle in self.particles:
-            particle.update(dt)
-        self.particles = [particle for particle in self.particles if particle.life > 0]
+    def finish(self, result: str) -> None:
+        self.state = result
+        if self.score > self.best:
+            self.best = self.score
+            save_best(self.best)
 
     def handle_key(self, key: int) -> bool:
-        if key in (pygame.K_q,):
+        if key == pygame.K_q:
             return False
-        if key == pygame.K_h and self.state == "menu":
-            self.state = "help"
-        elif key == pygame.K_ESCAPE and self.state == "help":
-            self.state = "menu"
-        elif key in (pygame.K_p, pygame.K_ESCAPE) and self.state == "playing":
-            self.state = "paused"
-        elif key in (pygame.K_p, pygame.K_ESCAPE) and self.state == "paused":
+        if self.state == "menu":
+            if key in (pygame.K_RETURN, pygame.K_SPACE):
+                self.reset_run()
+                self.state = "playing"
+            elif key == pygame.K_h:
+                self.state = "help"
+        elif self.state == "help":
+            if key in (pygame.K_ESCAPE, pygame.K_h):
+                self.state = "menu"
+        elif self.state == "playing":
+            if key == pygame.K_ESCAPE:
+                self.state = "paused"
+            elif key in (pygame.K_f, pygame.K_SPACE):
+                self.mine()
+            elif key == pygame.K_e:
+                self.craft()
+            elif key in (pygame.K_w, pygame.K_UP):
+                self.move_player(0, -1)
+            elif key in (pygame.K_s, pygame.K_DOWN):
+                self.move_player(0, 1)
+            elif key in (pygame.K_a, pygame.K_LEFT):
+                self.move_player(-1, 0)
+            elif key in (pygame.K_d, pygame.K_RIGHT):
+                self.move_player(1, 0)
+        elif self.state == "paused":
+            if key in (pygame.K_ESCAPE, pygame.K_RETURN):
+                self.state = "playing"
+        elif self.state in ("game_over", "victory") and key in (pygame.K_RETURN, pygame.K_SPACE):
+            self.reset_run()
             self.state = "playing"
-        elif key == pygame.K_SPACE and self.state == "playing":
-            self.use_pulse()
-        elif key in (pygame.K_RETURN, pygame.K_SPACE) and self.state == "menu":
-            self.start_game()
-        elif key in (pygame.K_RETURN, pygame.K_SPACE) and self.state in ("game_over", "victory"):
-            self.start_game()
-        elif key == pygame.K_h and self.state in ("game_over", "victory"):
-            self.state = "help"
         return True
 
-    def draw_text(self, text: str, font: pygame.font.Font, color: tuple[int, int, int], x: int, y: int, align: str = "center") -> None:
+    def draw_text(self, text: str, font: pygame.font.Font, color: tuple[int, int, int],
+                  x: int, y: int, center: bool = False) -> None:
         image = font.render(text, True, color)
         rect = image.get_rect()
-        alignment = "midright" if align == "right" else align
-        setattr(rect, alignment, (x, y))
+        if center:
+            rect.center = (x, y)
+        else:
+            rect.topleft = (x, y)
         self.screen.blit(image, rect)
 
-    def draw_background(self) -> None:
-        self.screen.fill(BG)
-        for x, y, size in self.background_stars:
-            pygame.draw.circle(self.screen, (31, 57, 77), (x, y), size)
-        pygame.draw.rect(self.screen, PANEL, ARENA, border_radius=14)
-        for x in range(ARENA.left + 24, ARENA.right, 36):
-            pygame.draw.line(self.screen, GRID, (x, ARENA.top + 1), (x, ARENA.bottom - 1), 1)
-        for y in range(ARENA.top + 20, ARENA.bottom, 36):
-            pygame.draw.line(self.screen, GRID, (ARENA.left + 1, y), (ARENA.right - 1, y), 1)
-        pygame.draw.rect(self.screen, (37, 71, 91), ARENA, 2, border_radius=14)
+    def draw_block(self, x: int, y: int, tile: str) -> None:
+        px, py = WORLD_X + x * TILE, WORLD_Y + y * TILE
+        rect = pygame.Rect(px, py, TILE, TILE)
+        if tile == WALL:
+            pygame.draw.rect(self.screen, (77, 82, 88), rect)
+            pygame.draw.rect(self.screen, (93, 100, 105), (px, py, TILE, 6))
+            pygame.draw.line(self.screen, (55, 61, 67), (px, py + 21), (px + TILE, py + 21), 2)
+            pygame.draw.line(self.screen, (55, 61, 67), (px + 16, py + 6), (px + 16, py + 21), 2)
+        else:
+            pygame.draw.rect(self.screen, (91, 66, 48), rect)
+            pygame.draw.rect(self.screen, (94, 123, 72), (px, py, TILE, 8))
+            pygame.draw.line(self.screen, (78, 57, 43), (px, py + 22), (px + TILE, py + 22), 2)
+            pygame.draw.line(self.screen, (78, 57, 43), (px + 20, py + 8), (px + 20, py + 22), 2)
+            if tile in ORE:
+                material = ORE[tile]
+                color = ORE_COLORS[material]
+                for ox, oy in ((7, 13), (21, 11), (13, 24), (25, 25)):
+                    pygame.draw.rect(self.screen, color, (px + ox, py + oy, 4, 4))
+            elif tile == BENCH:
+                pygame.draw.rect(self.screen, (129, 83, 48), (px + 4, py + 10, 24, 18))
+                pygame.draw.line(self.screen, (225, 179, 92), (px + 6, py + 14), (px + 26, py + 14), 2)
+                pygame.draw.line(self.screen, (72, 48, 38), (px + 11, py + 18), (px + 11, py + 26), 2)
+            elif tile == PORTAL:
+                pulse = (self.elapsed % 1.0) * 3
+                pygame.draw.rect(self.screen, (46, 36, 99), (px + 5, py + 3, 22, 28))
+                pygame.draw.rect(self.screen, (152, 98, 241), (px + 9, py + 5, 14, 24), 2)
+                pygame.draw.rect(self.screen, (89, 218, 237), (px + 12, py + 8, 8, max(4, 18 - int(pulse))), 2)
+        pygame.draw.rect(self.screen, (0, 0, 0, 35), rect, 1)
 
-    def draw_beacon(self) -> None:
-        center = (ARENA.centerx, ARENA.centery)
-        active = self.orbs_collected >= GOAL_ORBS
-        color = GREEN if active else (54, 97, 111)
-        radius = 28 + int(self.beacon_flash * 7)
-        pygame.draw.circle(self.screen, (*color,), center, radius + 12, 2)
-        pygame.draw.circle(self.screen, color, center, radius, 2)
-        pygame.draw.circle(self.screen, color if active else (34, 67, 80), center, 10)
-        if active:
-            self.draw_text("EXIT", self.fonts["tiny"], GREEN, center[0], center[1] + 41)
+    def draw_explorer(self) -> None:
+        x = WORLD_X + self.player.x * TILE
+        y = WORLD_Y + self.player.y * TILE
+        if self.player.invulnerable and int(self.elapsed * 12) % 2:
+            return
+        pygame.draw.rect(self.screen, (52, 114, 185), (x + 7, y + 15, 18, 14))
+        pygame.draw.rect(self.screen, (224, 172, 124), (x + 8, y + 4, 16, 14))
+        pygame.draw.rect(self.screen, (103, 68, 42), (x + 6, y + 2, 20, 7))
+        pygame.draw.rect(self.screen, INK, (x + 18, y + 9, 3, 3))
+        pygame.draw.rect(self.screen, (41, 65, 108), (x + 8, y + 26, 6, 5))
+        pygame.draw.rect(self.screen, (41, 65, 108), (x + 19, y + 26, 6, 5))
+
+    def draw_slime(self, slime: Slime) -> None:
+        x, y = WORLD_X + slime.x * TILE, WORLD_Y + slime.y * TILE
+        pygame.draw.rect(self.screen, (64, 165, 104), (x + 4, y + 10, 24, 19))
+        pygame.draw.rect(self.screen, (92, 208, 127), (x + 8, y + 5, 16, 7))
+        pygame.draw.rect(self.screen, INK, (x + 9, y + 13, 4, 4))
+        pygame.draw.rect(self.screen, INK, (x + 20, y + 13, 4, 4))
 
     def draw_hud(self) -> None:
-        pygame.draw.rect(self.screen, PANEL, (0, 0, WIDTH, 78))
-        self.draw_text("SIGNAL BLOOM", self.fonts["small"], CYAN, 26, 20, "topleft")
-        self.draw_text(f"SCORE  {self.score:05d}", self.fonts["body"], WHITE, 27, 48, "topleft")
-        self.draw_text(f"ORBS  {self.orbs_collected:02d}/{GOAL_ORBS}", self.fonts["body"], GREEN, 310, 34, "center")
-        self.draw_text(f"PULSE  {self.player.charge}/{PULSE_COST}", self.fonts["small"], CYAN if self.player.charge >= PULSE_COST else MUTED, 558, 35, "center")
-        self.draw_text("♥ " * self.player.lives, self.fonts["body"], PINK, 755, 34, "center")
-        self.draw_text(f"BEST {self.high_score:05d}", self.fonts["small"], GOLD, 922, 35, "right")
+        pygame.draw.rect(self.screen, (29, 35, 43), (0, 0, WIDTH, 106))
+        self.draw_text("REDSTONE RUN", self.font, MINT, 22, 17)
+        self.draw_text(f"SCORE {self.score:04d}", self.font, WHITE, 245, 17)
+        self.draw_text(f"BEST {self.best:04d}", self.font, GOLD, 415, 17)
+        self.draw_text(f"HP {max(0, self.player.health)}/3", self.font, RED, 600, 17)
+        self.draw_text(f"DEPTH {1 + int(self.elapsed // 30)}", self.small, BLUE, 775, 21)
+        inventory_text = (f"REDSTONE {self.inventory['redstone']}/{GOAL['redstone']}    "
+                          f"IRON {self.inventory['iron']}/{GOAL['iron']}    "
+                          f"COAL {self.inventory['coal']}    "
+                          f"CORE {'YES' if self.inventory['beacon_core'] else 'NO'}")
+        self.draw_text(inventory_text, self.small, WHITE, 22, 65)
 
-    def draw_playfield(self) -> None:
-        self.draw_background()
-        self.draw_beacon()
-        for orb in self.orbs:
-            orb.draw(self.screen, self.elapsed)
-        for drone in self.drones:
-            drone.draw(self.screen)
-        for particle in self.particles:
-            particle.draw(self.screen)
-        if self.pulse_flash > 0:
-            radius = int(PULSE_RADIUS * (1 - self.pulse_flash / 0.34))
-            pygame.draw.circle(self.screen, CYAN, (round(self.player.x), round(self.player.y)), max(8, radius), 2)
-        self.player.draw(self.screen)
+    def draw_world(self) -> None:
+        self.screen.fill((28, 31, 36))
         self.draw_hud()
-        if self.orbs_collected >= GOAL_ORBS:
-            self.draw_text("BEACON RESTORED  •  REACH THE CENTER", self.fonts["small"], GREEN, WIDTH // 2, HEIGHT - 10)
-        else:
-            self.draw_text("COLLECT SIGNAL ORBS  •  SPACE: PULSE  •  P: PAUSE", self.fonts["tiny"], MUTED, WIDTH // 2, HEIGHT - 10)
+        for y, row in enumerate(self.world):
+            for x, tile in enumerate(row):
+                self.draw_block(x, y, tile)
+        for slime in self.slimes:
+            self.draw_slime(slime)
+        self.draw_explorer()
+        hint = self.message if self.message_timer > 0 else "WASD/Arrows move  •  F mine  •  E craft beside workbench  •  Esc pause"
+        pygame.draw.rect(self.screen, (29, 35, 43), (0, 646, WIDTH, 74))
+        self.draw_text(hint, self.small, GOLD if self.message_timer > 0 else MUTED, WIDTH // 2, 665, True)
+        self.draw_text("Ore veins: red = redstone   tan = iron   dark = coal", self.small, MUTED, WIDTH // 2, 694, True)
 
-    def draw_overlay(self, title: str, subtitle: str, accent: tuple[int, int, int], lines: list[str]) -> None:
-        shade = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
-        shade.fill((4, 10, 22, 208))
-        self.screen.blit(shade, (0, 0))
-        self.draw_text(title, self.fonts["title"], accent, WIDTH // 2, 170)
-        self.draw_text(subtitle, self.fonts["body"], WHITE, WIDTH // 2, 225)
+    def draw_panel(self, title: str, lines: list[str], color: tuple[int, int, int]) -> None:
+        self.screen.fill((28, 31, 36))
+        # A tiny block landscape gives the menu a handmade pixel-world identity.
+        for x in range(0, WIDTH, TILE):
+            self.draw_block(x // TILE, 14, WALL if x % 96 == 0 else FLOOR)
+        panel = pygame.Rect(100, 95, 760, 500)
+        pygame.draw.rect(self.screen, (38, 45, 53), panel, border_radius=12)
+        pygame.draw.rect(self.screen, color, panel, 3, border_radius=12)
+        self.draw_text(title, self.title_font, color, WIDTH // 2, 165, True)
         for index, line in enumerate(lines):
-            self.draw_text(line, self.fonts["small"], MUTED if index else WHITE, WIDTH // 2, 300 + index * 39)
-
-    def draw_menu(self) -> None:
-        self.draw_background()
-        flower_center = (WIDTH // 2, 187)
-        for petal in range(6):
-            angle = petal * math.tau / 6
-            petal_center = (
-                round(flower_center[0] + math.cos(angle) * 13),
-                round(flower_center[1] + math.sin(angle) * 13),
-            )
-            pygame.draw.circle(self.screen, GREEN if petal % 2 == 0 else CYAN, petal_center, 8)
-        pygame.draw.circle(self.screen, GOLD, flower_center, 5)
-        self.draw_text("SIGNAL BLOOM", self.fonts["title"], WHITE, WIDTH // 2, 275)
-        self.draw_text("A little station. A lot of security drones.", self.fonts["body"], MUTED, WIDTH // 2, 323)
-        self.draw_text("[ ENTER ]   BEGIN", self.fonts["sub"], CYAN, WIDTH // 2, 409)
-        self.draw_text("[ H ]  HOW TO PLAY", self.fonts["small"], WHITE, WIDTH // 2, 456)
-        self.draw_text(f"PERSONAL BEST   {self.high_score:05d}", self.fonts["small"], GOLD, WIDTH // 2, 514)
-        self.draw_text("WASD / ARROWS MOVE     •     SPACE PULSE     •     P PAUSE", self.fonts["tiny"], MUTED, WIDTH // 2, 600)
-
-    def draw_help(self) -> None:
-        self.draw_background()
-        self.draw_overlay("HOW TO PLAY", "Restore the garden station's beacon.", CYAN, [
-            "Move with WASD or the arrow keys.",
-            "Collect 12 green signal orbs to charge the beacon.",
-            "Every orb also adds one charge to your pulse.",
-            "Press SPACE with 3 charges to stun nearby drones.",
-            "Reach the glowing center after the beacon opens.",
-            "Avoid drones. You have 3 lives; the pace rises over time.",
-            "P or Esc pauses. Esc returns here to the menu.",
-            "Press Esc to return to the title screen.",
-        ])
+            self.draw_text(line, self.font, WHITE if index == 0 else MUTED,
+                           WIDTH // 2, 245 + index * 42, True)
 
     def draw(self) -> None:
-        if self.state == "menu":
-            self.draw_menu()
+        if self.state == "playing":
+            self.draw_world()
+        elif self.state == "menu":
+            self.draw_panel("REDSTONE RUN", [
+                "A tiny block-world adventure in Python + Pygame",
+                "Mine ore. Craft a beacon core. Outsmart cave slimes.",
+                "WASD / arrows move     F mine     E craft at workbench",
+                "[ ENTER ]  START ADVENTURE       [ H ]  HOW TO PLAY",
+                f"PERSONAL BEST  {self.best:04d}       Made from code-drawn visuals",
+            ], MINT)
         elif self.state == "help":
-            self.draw_help()
+            self.draw_panel("FIELD GUIDE", [
+                "Mine colored ore beside you with F (or Space).",
+                "Collect 4 redstone + 2 iron; coal is bonus score.",
+                "Stand beside the brown workbench and press E to craft.",
+                "Reach the purple portal with the beacon core to win.",
+                "Cave slimes chase you. Three hearts; avoid contact.",
+                "Esc pauses during play. Enter restarts after an ending.",
+                "IP ideas: lists, dictionaries, loops, conditions, JSON.",
+            ], GOLD)
         else:
-            self.draw_playfield()
-            if self.state == "paused":
-                self.draw_overlay("PAUSED", "Take a breath, ranger.", GOLD, ["Press P or Esc to continue.", "Press Q or close the window to quit."])
+            title = "PAUSED" if self.state == "paused" else ("CAVE CLEARED!" if self.state == "victory" else "RUN ENDED")
+            if self.state == "victory":
+                lines = [f"Score: {self.score}   Best: {self.best}", "Beacon core activated the portal.", "Press Enter to explore again."]
             elif self.state == "game_over":
-                title = "NEW PERSONAL BEST" if self.new_record else "RUN ENDED"
-                self.draw_overlay(title, f"Final score: {self.score:05d}     •     Orbs: {self.orbs_collected}/{GOAL_ORBS}", PINK, [
-                    f"Personal best: {self.high_score:05d}",
-                    "Press Enter to try again.",
-                    "Press H to view instructions.",
-                ])
-            elif self.state == "victory":
-                self.draw_overlay("BEACON RESTORED", f"You brought the garden back to life!   Score: {self.score:05d}", GREEN, [
-                    f"Personal best: {self.high_score:05d}",
-                    "Press Enter to play again.",
-                    "Press H to view instructions.",
-                ])
+                lines = [f"Score: {self.score}   Best: {self.best}", "The cave slimes caught up.", "Press Enter to try again."]
+            else:
+                lines = ["Your world is waiting.", "Press Esc or Enter to continue.", "Press Q to quit."]
+            self.draw_panel(title, lines, GOLD if self.state == "paused" else (MINT if self.state == "victory" else RED))
         pygame.display.flip()
 
     def run(self) -> None:
@@ -519,9 +439,9 @@ class SignalBloomGame:
 
 def main() -> None:
     try:
-        SignalBloomGame().run()
+        RedstoneRun().run()
     except pygame.error as error:
-        print(f"Could not start Signal Bloom: {error}", file=sys.stderr)
+        print(f"Could not start Redstone Run: {error}", file=sys.stderr)
         pygame.quit()
 
 
